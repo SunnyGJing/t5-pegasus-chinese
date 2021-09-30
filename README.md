@@ -10,22 +10,8 @@
 6. 支持批量推理/生成，提速明显
 7. 支持多进程，进一步提速优化
 
-**本 Git 所使用的 t5-pegasus预训练模型 分为base和small两版：**
-- base版：
-  - 总参数量为2.75亿
-  - 训练时最大长度为512，batch_size为96，学习率为10-4，使用6张3090训练了100万步，训练时间约13天
-  - 数据是30多G的精处理通用语料，训练acc约47%，训练loss约2.97
-  - 下载链接: https://pan.baidu.com/s/1lQ9Dt9wZDO3IgiCL9tP-Ug 提取码: 3sfn
-- small版：
-  - 参数量为0.95亿，对显存更友好
-  - 训练最大长度为512，batch_size为96，学习率为10-4，使用3张TITAN训练了100万步，训练时间约12天
-  - 数据是30多G的精处理通用语料，训练acc约42.3%，训练loss约3.40
-  - 中文效果相比base版略降，比mT5 small版要好
-  - 链接: https://pan.baidu.com/s/1bXRVWnDyAck9VfSO9_1oJQ 提取码: qguk
-- 均由追一科技开源发布
-
 **本 Git 如何运行：**  
-1. 确保安装所需Python库  
+1. 安装所需Python库  
     - transformers==4.3.3  
     - tokeniziers==0.10.3  
     - keras4bert==0.15.6
@@ -35,7 +21,17 @@
     - jieba
     - rouge
     - tqdm
-2. 命令行执行
+2. t5-pegasus模型放在 t5_pegasus_pretain目录下，目录下三个文件：
+   - pytorch_model.bin
+   - bert_config.json
+   - vocab.txt  
+
+    预训练模型下载地址：
+    - Base版本：https://pan.baidu.com/s/1lQ9Dt9wZDO3IgiCL9tP-Ug 提取码: 3sfn
+    - Small版本：链接: https://pan.baidu.com/s/1bXRVWnDyAck9VfSO9_1oJQ 提取码: qguk
+
+    解压后，按上面说的放在对应目录下，文件名称确认无误即可。
+3. 命令行执行
    - 训练finetune
         ```bash
         python train_with_finetune.py

@@ -12,6 +12,7 @@ from tqdm.auto import tqdm
 #from multiprocessing import Process
 from multiprocessing import Pool, Process
 
+
 def load_data(filename):
     """加载数据
     单条格式：(正文)
@@ -30,6 +31,9 @@ def load_data(filename):
     
 
 class T5PegasusTokenizer(BertTokenizer):
+    """结合中文特点完善的Tokenizer
+    基于词颗粒度的分词，如词表中未出现，再调用BERT原生Tokenizer
+    """
     def __init__(self, pre_tokenizer=lambda x: jieba.cut(x, HMM=False), *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.pre_tokenizer = pre_tokenizer
@@ -56,16 +60,16 @@ class KeyDataset(Dataset):
     
     
 def create_data(data, tokenizer, max_len):
+    """调用tokenizer.encode编码正文/标题，每条样本用dict表示数据域
+    """
     ret, flag = [], True
     for content in data:
         text_ids = tokenizer.encode(content, max_length=max_len,
                                     truncation='only_first')
-                                    # return_token_type_ids=True,
-                                    # return_tensors='pt',
+
         if flag:
             flag = False
-            print(content, len(content), max_len)
-            print(len(text_ids))
+            print(content, len(content), max_len, len(text_ids))
 
         features = {'input_ids': text_ids, 'attention_mask': [1] * len(text_ids)}
         ret.append(features)
@@ -90,7 +94,9 @@ def sequence_padding(inputs, length=None, padding=0):
 
 
 def default_collate(batch):
-    r"""Puts each data field into a tensor with outer dimension batch size"""
+    """组batch
+    各个数据域分别转换为tensor，tensor第一个维度等于batch_size
+    """
     np_str_obj_array_pattern = re.compile(r'[SaUO]')
     default_collate_err_msg_format = (
         "default_collate: batch must contain tensors, numpy arrays, numbers, "
@@ -139,6 +145,8 @@ def default_collate(batch):
     
 
 def prepare_data(args, tokenizer):
+    """准备batch数据
+    """
     test_data = load_data(args.test_data)
     test_data = create_data(test_data, tokenizer, args.max_len)
     test_data = KeyDataset(test_data)
@@ -147,19 +155,21 @@ def prepare_data(args, tokenizer):
 
 
 def generate_multiprocess(content):
+    """多进程
+    """
     print('Run task (%s)...' % (os.getpid()))
     model.eval()
-    gen = model.generate(max_length=30,
+    gen = model.generate(max_length=args.max_len_generate,
                              eos_token_id=tokenizer.sep_token_id,
                              decoder_start_token_id=tokenizer.cls_token_id,
                              **content)
     gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
 
 
-def generate(test_data, model):
+def generate(test_data, model, args):
     model.eval()
     for content in tqdm(test_data):
-        gen = model.generate(max_length=30,
+        gen = model.generate(max_length=args.max_len_generate,
                              eos_token_id=tokenizer.sep_token_id,
                              decoder_start_token_id=tokenizer.cls_token_id,
                              **content)
@@ -168,15 +178,16 @@ def generate(test_data, model):
 
 def init_argument():
     parser = argparse.ArgumentParser(description='t5-pegasus-chinese')
-    parser.add_argument('--test_data', default='./data/data_complaint_hotspot_annotation.tsv')
-    parser.add_argument('--pretrain_model', default='./t5_pegasus_torch')    
-    parser.add_argument('--model_path', default='./summary_model')
+    parser.add_argument('--test_data', default='./data/predict.tsv')
+    parser.add_argument('--pretrain_model', default='./t5_pegasus_pretrain')    
+    parser.add_argument('--model', default='./summary_model')
 
-    parser.add_argument('--batch_size', default=5, help='batch size')
+    parser.add_argument('--batch_size', default=16, help='batch size')
     parser.add_argument('--max_len', default=512, help='max length of inputs')
-    parser.add_argument('--use_multiprocess', default=False)
+    parser.add_argument('--max_len_generate', default=40, help='max length of generated text')
+    parser.add_argument('--use_multiprocess', default=False, action='store_true')
 
-    args = parser.parse_args
+    args = parser.parse_args()
     return args
 
 
@@ -191,10 +202,10 @@ if __name__ == '__main__':
     
     # step 3. load finetuned model
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = torch.load('summary_model_epoch_3_small', map_location=device)
+    model = torch.load(args.model, map_location=device)
 
     # step 4. predict
-    if args.use_multiprocess:
+    if args.use_multiprocess and device == 'cpu':
         print('Parent process %s.' % os.getpid())
         p = Pool(2)
         p.map_async(generate_multiprocess, test_data)

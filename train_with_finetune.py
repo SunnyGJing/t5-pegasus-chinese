@@ -165,7 +165,7 @@ def compute_rouge(source, target):
     """
     source, target = ' '.join(source), ' '.join(target)
     try:
-        scores = rouge.get_scores(hyps=source, refs=target)
+        scores = rouge.Rouge().get_scores(hyps=source, refs=target)
         return {
             'rouge-1': scores[0]['rouge-1']['f'],
             'rouge-2': scores[0]['rouge-2']['f'],
@@ -194,7 +194,6 @@ def compute_rouges(sources, targets):
 
 
 def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
-    rouge = rouge.Rouge()
     best = 0
     for epoch in range(args.num_epoch):
         model.train()
@@ -221,21 +220,21 @@ def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
             title = feature['title']
             content = {k : v for k, v in feature.items() if k != 'title'} 
             if args.data_parallel and torch.cuda.is_available():
-                gen = model.module.generate(max_length=40,
+                gen = model.module.generate(max_length=args.max_len_generate,
                              eos_token_id=tokenizer.sep_token_id,
                              decoder_start_token_id=tokenizer.cls_token_id,
                              **content)
             else:
-                gen = model.generate(max_length=40,
+                gen = model.generate(max_length=args.max_len_generate,
                              eos_token_id=tokenizer.sep_token_id,
                              decoder_start_token_id=tokenizer.cls_token_id,
                              **content)
             gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
             gen = [item.replace(' ', '') for item in gen]
-            print(title)
-            print(gen)
-            gens.append(gen)
-            summaries.append(title)
+            # print(title)
+            # print(gen)
+            gens.extend(gen)
+            summaries.extend(title)
         scores = compute_rouges(gens, summaries)
         print(scores)
         rouge_l = scores['rouge-l']
@@ -250,17 +249,18 @@ def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
 
 def init_argument():
     parser = argparse.ArgumentParser(description='t5-pegasus-chinese')
-    parser.add_argument('--train_data', default='./data/data_shorts_train.tsv')
-    parser.add_argument('--dev data', default='./data/data_shorts_dev.tsv')
-    parser.add_argument('--pretrain_model', default='./t5_pegasus_torch')
+    parser.add_argument('--train_data', default='./data/train.tsv')
+    parser.add_argument('--dev_data', default='./data/dev.tsv')
+    parser.add_argument('--pretrain_model', default='./t5_pegasus_pretrain')
     
     parser.add_argument('--num_epoch', default=15, help='number of epoch')
     parser.add_argument('--batch_size', default=16, help='batch size')
     parser.add_argument('--lr', default=2e-4, help='learning rate')
     parser.add_argument('--data_parallel', default=False)
     parser.add_argument('--max_len', default=512, help='max length of inputs')
+    parser.add_argument('--max_len_generate', default=40, help='max length of generated text')
 
-    args = parser.parse_args
+    args = parser.parse_args()
     return args
 
 
