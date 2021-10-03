@@ -13,6 +13,9 @@ from tqdm.auto import tqdm
 from multiprocessing import Pool, Process
 
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
 def load_data(filename):
     """加载数据
     单条格式：(正文)
@@ -34,9 +37,11 @@ class T5PegasusTokenizer(BertTokenizer):
     """结合中文特点完善的Tokenizer
     基于词颗粒度的分词，如词表中未出现，再调用BERT原生Tokenizer
     """
-    def __init__(self, pre_tokenizer=lambda x: jieba.cut(x, HMM=False), *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pre_tokenizer = pre_tokenizer
+        
+    def pre_tokenizer(self, x):
+        return jieba.cut(x, HMM=False)
 
     def _tokenize(self, text, *arg, **kwargs):
         split_tokens = []
@@ -157,16 +162,15 @@ def prepare_data(args, tokenizer):
 def generate_multiprocess(content):
     """多进程
     """
-    print('Run task (%s)...' % (os.getpid()))
     model.eval()
-    gen = model.generate(max_length=args.max_len_generate,
+    gen = model.generate(max_length=30, # TODO args.max_len_generate,
                              eos_token_id=tokenizer.sep_token_id,
                              decoder_start_token_id=tokenizer.cls_token_id,
                              **content)
     gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
 
 
-def generate(test_data, model, args):
+def generate(test_data, model, tokenizer, args):
     model.eval()
     for content in tqdm(test_data):
         gen = model.generate(max_length=args.max_len_generate,
@@ -182,7 +186,7 @@ def init_argument():
     parser.add_argument('--pretrain_model', default='./t5_pegasus_pretrain')    
     parser.add_argument('--model', default='./summary_model')
 
-    parser.add_argument('--batch_size', default=16, help='batch size')
+    parser.add_argument('--batch_size', default=1, help='batch size')
     parser.add_argument('--max_len', default=512, help='max length of inputs')
     parser.add_argument('--max_len_generate', default=40, help='max length of generated text')
     parser.add_argument('--use_multiprocess', default=False, action='store_true')
@@ -201,17 +205,17 @@ if __name__ == '__main__':
     test_data = prepare_data(args, tokenizer)
     
     # step 3. load finetuned model
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = torch.load(args.model, map_location=device)
 
     # step 4. predict
+    res = []
     if args.use_multiprocess and device == 'cpu':
         print('Parent process %s.' % os.getpid())
         p = Pool(2)
-        p.map_async(generate_multiprocess, test_data)
+        p.map_async(generate_multiprocess, test_data)# TODO , callback=res.append)
         print('Waiting for all subprocesses done...')
         p.close()
         p.join()
         print('All subprocesses done.')
     else:
-        generate(test_data, model)
+        generate(test_data, model, tokenizer, args)
