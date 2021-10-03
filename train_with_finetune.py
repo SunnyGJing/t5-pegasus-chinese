@@ -1,3 +1,4 @@
+import os
 import re
 import rouge
 import jieba
@@ -194,6 +195,9 @@ def compute_rouges(sources, targets):
 
 
 def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
+    if not os.path.exists('./saved_model'):
+        os.mkdir('./saved_model')
+        
     best = 0
     for epoch in range(args.num_epoch):
         model.train()
@@ -243,8 +247,8 @@ def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
             if args.data_parallel and torch.cuda.is_available():
                 torch.save(model.module, 'summary_model')
             else:
-                torch.save(model, 'summary_model')
-        # torch.save(model, 'summary_model_epoch_{}'.format(str(epoch)))
+                torch.save(model, './saved_model/summary_model')
+        # torch.save(model, './saved_model/summary_model_epoch_{}'.format(str(epoch)))
 
 
 def init_argument():
