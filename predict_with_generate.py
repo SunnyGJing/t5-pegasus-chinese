@@ -7,10 +7,9 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import re
 import os
+import csv
 import argparse
 from tqdm.auto import tqdm
-#from multiprocessing import Process
-from multiprocessing import Pool, Process
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -23,13 +22,8 @@ def load_data(filename):
     D = []
     with open(filename, encoding='utf-8') as f:
         for l in f.readlines():
-            cur = l.strip().split('\t')
-            if len(cur) == 2:
-                title, content = cur[0], cur[1]
-                D.append((title, content))
-            elif len(cur) == 1:
-                content = cur[0]
-                D.append(content)
+            content = l.strip()
+            D.append(content)
     return D
     
 
@@ -76,7 +70,9 @@ def create_data(data, tokenizer, max_len):
             flag = False
             print(content, len(content), max_len, len(text_ids))
 
-        features = {'input_ids': text_ids, 'attention_mask': [1] * len(text_ids)}
+        features = {'input_ids': text_ids,
+                    'attention_mask': [1] * len(text_ids),
+                    'raw_data': content}
         ret.append(features)
     return ret
 
@@ -159,37 +155,33 @@ def prepare_data(args, tokenizer):
     return test_data
 
 
-def generate_multiprocess(content):
-    """多进程
-    """
-    model.eval()
-    gen = model.generate(max_length=30, # TODO args.max_len_generate,
-                             eos_token_id=tokenizer.sep_token_id,
-                             decoder_start_token_id=tokenizer.cls_token_id,
-                             **content)
-    gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
-
-
 def generate(test_data, model, tokenizer, args):
-    model.eval()
-    for content in tqdm(test_data):
-        gen = model.generate(max_length=args.max_len_generate,
-                             eos_token_id=tokenizer.sep_token_id,
-                             decoder_start_token_id=tokenizer.cls_token_id,
-                             **content)
-        gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
+    with open(args.result_file, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        model.eval()
+        for feature in tqdm(test_data):
+            raw_data = feature['raw_data']
+            content = {k : v for k, v in feature.items() if k != 'raw_data'} 
+            gen = model.generate(max_length=args.max_len_generate,
+                                eos_token_id=tokenizer.sep_token_id,
+                                decoder_start_token_id=tokenizer.cls_token_id,
+                                **content)
+            gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
+            gen = [item.replace(' ', '') for item in gen]
+            writer.writerows(zip(gen, raw_data))
+    print('Done!')
 
 
 def init_argument():
     parser = argparse.ArgumentParser(description='t5-pegasus-chinese')
     parser.add_argument('--test_data', default='./data/predict.tsv')
+    parser.add_argument('--result_file', default='./data/predict_result.tsv')
     parser.add_argument('--pretrain_model', default='./t5_pegasus_pretrain')    
-    parser.add_argument('--model', default='./summary_model')
+    parser.add_argument('--model', default='./saved_model/summary_model')
 
-    parser.add_argument('--batch_size', default=1, help='batch size')
+    parser.add_argument('--batch_size', default=16, help='batch size')
     parser.add_argument('--max_len', default=512, help='max length of inputs')
     parser.add_argument('--max_len_generate', default=40, help='max length of generated text')
-    parser.add_argument('--use_multiprocess', default=False, action='store_true')
 
     args = parser.parse_args()
     return args
@@ -208,14 +200,4 @@ if __name__ == '__main__':
     model = torch.load(args.model, map_location=device)
 
     # step 4. predict
-    res = []
-    if args.use_multiprocess and device == 'cpu':
-        print('Parent process %s.' % os.getpid())
-        p = Pool(2)
-        p.map_async(generate_multiprocess, test_data)# TODO , callback=res.append)
-        print('Waiting for all subprocesses done...')
-        p.close()
-        p.join()
-        print('All subprocesses done.')
-    else:
-        generate(test_data, model, tokenizer, args)
+    generate(test_data, model, tokenizer, args)
