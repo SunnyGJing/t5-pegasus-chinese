@@ -14,7 +14,7 @@
 1. 所需Python库  
     - transformers==4.3.3  
     - tokeniziers==0.10.3  
-    - keras4bert==0.15.6
+    - bert4keras==0.10.5或者0.10.6
     - torch==1.7.0或者1.8.0
     - Keras==2.3.1
     - tensorflow-gpu==1.15.0
