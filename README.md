@@ -21,6 +21,7 @@
     - jieba
     - rouge
     - tqdm
+    - pandas 
 2. 下载t5-pegasus模型放在 t5_pegasus_pretain目录下，目录下三个文件：
    - pytorch_model.bin
    - bert_config.json
@@ -39,6 +40,10 @@
    - 预测generate
         ```bash
         python predict_with_generate.py
+        ```
+   - 预测generate(多进程，仅支持Linux系统，Windows系统不可用)
+        ```bash
+        python predict_with_generate.py --use_multiprocess
         ```
 **语料介绍：**
 

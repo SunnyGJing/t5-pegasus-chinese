@@ -10,6 +10,8 @@ import os
 import csv
 import argparse
 from tqdm.auto import tqdm
+from multiprocessing import Pool, Process
+import pandas as pd
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -68,7 +70,7 @@ def create_data(data, tokenizer, max_len):
 
         if flag:
             flag = False
-            print(content, len(content), max_len, len(text_ids))
+            print(content)
 
         features = {'input_ids': text_ids,
                     'attention_mask': [1] * len(text_ids),
@@ -172,6 +174,21 @@ def generate(test_data, model, tokenizer, args):
     print('Done!')
 
 
+def generate_multiprocess(feature):
+    """多进程
+    """
+    model.eval()
+    raw_data = feature['raw_data']
+    content = {k: v for k, v in feature.items() if k != 'raw_data'}
+    gen = model.generate(max_length=args.max_len_generate,
+                             eos_token_id=tokenizer.sep_token_id,
+                             decoder_start_token_id=tokenizer.cls_token_id,
+                             **content)
+    gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
+    results = ["{}\t{}".format(x.replace(' ', ''), y) for x, y in zip(gen, raw_data)]
+    return results
+
+
 def init_argument():
     parser = argparse.ArgumentParser(description='t5-pegasus-chinese')
     parser.add_argument('--test_data', default='./data/predict.tsv')
@@ -182,6 +199,7 @@ def init_argument():
     parser.add_argument('--batch_size', default=16, help='batch size')
     parser.add_argument('--max_len', default=512, help='max length of inputs')
     parser.add_argument('--max_len_generate', default=40, help='max length of generated text')
+    parser.add_argument('--use_multiprocess', default=False, action='store_true')
 
     args = parser.parse_args()
     return args
@@ -200,4 +218,16 @@ if __name__ == '__main__':
     model = torch.load(args.model, map_location=device)
 
     # step 4. predict
-    generate(test_data, model, tokenizer, args)
+    res = []
+    if args.use_multiprocess and device == 'cpu':
+        print('Parent process %s.' % os.getpid())
+        p = Pool(2)
+        res = p.map_async(generate_multiprocess, test_data, chunksize=2).get()
+        print('Waiting for all subprocesses done...')
+        p.close()
+        p.join()
+        res = pd.DataFrame([item for batch in res for item in batch])
+        res.to_csv(args.result_file, index=False, header=False, encoding='utf-8')
+        print('Done!')
+    else:
+        generate(test_data, model, tokenizer, args)
