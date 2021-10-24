@@ -195,8 +195,8 @@ def compute_rouges(sources, targets):
 
 
 def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
-    if not os.path.exists('./saved_model'):
-        os.mkdir('./saved_model')
+    if not os.path.exists(args.model_dir):
+        os.mkdir(args.model_dir)
         
     best = 0
     for epoch in range(args.num_epoch):
@@ -245,10 +245,10 @@ def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
         if rouge_l > best:
             best = rouge_l
             if args.data_parallel and torch.cuda.is_available():
-                torch.save(model.module, 'summary_model')
+                torch.save(model.module, os.path.join(args.model_dir, 'summary_model'))
             else:
-                torch.save(model, './saved_model/summary_model')
-        # torch.save(model, './saved_model/summary_model_epoch_{}'.format(str(epoch)))
+                torch.save(model, os.path.join(args.model_dir, 'summary_model'))
+        # torch.save(model, os.path.join(args.model_dir, 'summary_model_epoch_{}'.format(str(epoch))))
 
 
 def init_argument():
@@ -256,6 +256,7 @@ def init_argument():
     parser.add_argument('--train_data', default='./data/train.tsv')
     parser.add_argument('--dev_data', default='./data/dev.tsv')
     parser.add_argument('--pretrain_model', default='./t5_pegasus_pretrain')
+    parser.add_argument('--model_dir', default='./saved_model')
     
     parser.add_argument('--num_epoch', default=15, help='number of epoch')
     parser.add_argument('--batch_size', default=16, help='batch size')
