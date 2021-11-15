@@ -27,9 +27,9 @@
    - bert_config.json
    - vocab.txt  
 
-    预训练模型下载地址：
-    - Base版本：https://pan.baidu.com/s/1lQ9Dt9wZDO3IgiCL9tP-Ug 提取码: 3sfn
-    - Small版本：https://pan.baidu.com/s/1bXRVWnDyAck9VfSO9_1oJQ 提取码: qguk
+    预训练模型下载地址（追一科技开源的t5-pegasus的pytorch版本）：
+    - Base版本：https://pan.baidu.com/s/1TGthgU22iZp_y1MZZMs1YA 提取码: j15c
+    - Small版本：https://pan.baidu.com/s/1Nw5wLb6KmcCOHSLtKssq8w 提取码：9rd8
 
     解压后，按上面说的放在对应目录下，文件名称确认无误即可。
 3. 命令行执行
