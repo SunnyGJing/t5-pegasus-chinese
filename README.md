@@ -27,7 +27,7 @@
    - bert_config.json
    - vocab.txt  
 
-    预训练模型下载地址（追一科技开源的t5-pegasus的pytorch版本）：
+    预训练模型下载地址（追一科技开源的t5-pegasus的pytorch版本，分享自renmada）：
     - Base版本：https://pan.baidu.com/s/1TGthgU22iZp_y1MZZMs1YA 提取码: j15c
     - Small版本：https://pan.baidu.com/s/1Nw5wLb6KmcCOHSLtKssq8w 提取码：9rd8
 
