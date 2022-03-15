@@ -7,17 +7,14 @@
 3. 集成了中文摘要生成、指代消解等生成任务语料，开箱即用
 4. 基于PyTorch
 5. 支持多张显卡DataParallel
-6. 支持批量推理/生成，提速明显
-7. 支持多进程，进一步提速优化
+6. 支持batch批量推理/生成
+7. 支持多进程，推理/生成提速
 
 **本 Git 如何运行：**  
 1. 所需Python库  
-    - transformers==4.3.3  
+    - transformers==4.15.0  
     - tokeniziers==0.10.3  
-    - bert4keras==0.10.5或者0.10.6
-    - torch==1.7.0或者1.8.0
-    - Keras==2.3.1
-    - tensorflow-gpu==1.15.0
+    - torch==1.7.0或1.8.0或1.8.1均可
     - jieba
     - rouge
     - tqdm

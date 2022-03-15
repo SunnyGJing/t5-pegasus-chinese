@@ -1,4 +1,3 @@
-from bert4torch.model import *
 from transformers import MT5ForConditionalGeneration
 import jieba
 from transformers import BertTokenizer, BatchEncoding
@@ -12,6 +11,8 @@ import argparse
 from tqdm.auto import tqdm
 from multiprocessing import Pool, Process
 import pandas as pd
+import numpy as np
+import rouge
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -19,13 +20,18 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def load_data(filename):
     """加载数据
-    单条格式：(正文)
+    单条格式：(正文) 或 (标题, 正文)
     """
     D = []
     with open(filename, encoding='utf-8') as f:
         for l in f.readlines():
-            content = l.strip()
-            D.append(content)
+            cur = l.strip().split('\t')
+            if len(cur) == 2:
+                title, content = cur[0], cur[1]
+                D.append((title, content))
+            elif len(cur) == 1:
+                content = cur[0]
+                D.append(content)
     return D
     
 
@@ -63,8 +69,10 @@ class KeyDataset(Dataset):
 def create_data(data, tokenizer, max_len):
     """调用tokenizer.encode编码正文/标题，每条样本用dict表示数据域
     """
-    ret, flag = [], True
+    ret, flag, title = [], True, None
     for content in data:
+        if type(content) == tuple:
+            title, content = content
         text_ids = tokenizer.encode(content, max_length=max_len,
                                     truncation='only_first')
 
@@ -75,6 +83,8 @@ def create_data(data, tokenizer, max_len):
         features = {'input_ids': text_ids,
                     'attention_mask': [1] * len(text_ids),
                     'raw_data': content}
+        if title:
+            features['title'] = title
         ret.append(features)
     return ret
 
@@ -157,13 +167,48 @@ def prepare_data(args, tokenizer):
     return test_data
 
 
+def compute_rouge(source, target):
+    """计算rouge-1、rouge-2、rouge-l
+    """
+    
+    source, target = ' '.join(source), ' '.join(target)
+    try:
+        scores = rouge.Rouge().get_scores(hyps=source, refs=target)
+        return {
+            'rouge-1': scores[0]['rouge-1']['f'],
+            'rouge-2': scores[0]['rouge-2']['f'],
+            'rouge-l': scores[0]['rouge-l']['f'],
+        }
+    except ValueError:
+        return {
+            'rouge-1': 0.0,
+            'rouge-2': 0.0,
+            'rouge-l': 0.0,
+        }
+    
+    
+def compute_rouges(sources, targets):
+    scores = {
+        'rouge-1': 0.0,
+        'rouge-2': 0.0,
+        'rouge-l': 0.0,
+    }
+    for source, target in zip(sources, targets):
+        score = compute_rouge(source, target)
+        for k, v in scores.items():
+            scores[k] = v + score[k]
+
+    return {k: v / len(targets) for k, v in scores.items()}
+
+
 def generate(test_data, model, tokenizer, args):
+    gens, summaries = [], []
     with open(args.result_file, 'w', encoding='utf-8', newline='') as f:
         writer = csv.writer(f, delimiter='\t')
         model.eval()
         for feature in tqdm(test_data):
             raw_data = feature['raw_data']
-            content = {k : v for k, v in feature.items() if k != 'raw_data'} 
+            content = {k : v for k, v in feature.items() if k not in ['raw_data', 'title']} 
             gen = model.generate(max_length=args.max_len_generate,
                                 eos_token_id=tokenizer.sep_token_id,
                                 decoder_start_token_id=tokenizer.cls_token_id,
@@ -171,6 +216,12 @@ def generate(test_data, model, tokenizer, args):
             gen = tokenizer.batch_decode(gen, skip_special_tokens=True)
             gen = [item.replace(' ', '') for item in gen]
             writer.writerows(zip(gen, raw_data))
+            gens.extend(gen)
+            if 'title' in feature:
+                summaries.extend(feature['title'])
+    if summaries:
+        scores = compute_rouges(gens, summaries)
+        print(scores)
     print('Done!')
 
 

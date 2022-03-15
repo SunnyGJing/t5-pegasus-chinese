@@ -4,6 +4,7 @@ import rouge
 import jieba
 import torch
 import argparse
+import numpy as np
 from tqdm.auto import tqdm
 from bert4torch.model import *
 from torch.utils.data import DataLoader, Dataset
@@ -63,11 +64,9 @@ def create_data(data, tokenizer, max_len=512, term='train'):
     ret, flag = [], True
     for title, content in data:
         text_ids = tokenizer.encode(content, max_length=max_len, truncation='only_first')
-        if flag:
+        if flag and term == 'train':
             flag = False
-            print(content, len(content), max_len)
-            print(text_ids)
-
+            print(content)
         if term == 'train':
             summary_ids = tokenizer.encode(title, max_length=max_len, truncation='only_first')
             features = {'input_ids': text_ids,
@@ -121,7 +120,7 @@ def default_collate(batch):
             numel = sum([x.numel() for x in batch])
             storage = elem.storage()._new_shared(numel)
             out = elem.new(storage)
-        return torch.stack(batch, 0, out=out).to(device)
+        return torch.stack(batch, 0, out=out)
     elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
             and elem_type.__name__ != 'string_':
         if elem_type.__name__ == 'ndarray' or elem_type.__name__ == 'memmap':
@@ -201,7 +200,7 @@ def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
     best = 0
     for epoch in range(args.num_epoch):
         model.train()
-        for i, cur in enumerate(tqdm(train_data)):
+        for i, cur in enumerate(tqdm(train_data, desc='Epoch {}:'.format(epoch))):
             cur = {k: v.to(device) for k, v in cur.items()}
             prob = model(**cur)[0]
             mask = cur['decoder_attention_mask'][:, 1:].reshape(-1).bool()
@@ -211,18 +210,18 @@ def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
             loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)
             loss = loss_fct(prob, labels)
             if i % 100 == 0:
-                print(i, loss.item())
+                print("Iter {}:  Training Loss: {}".format(i, loss.item()))
             loss.backward()
             adam.step()
             adam.zero_grad()
 
-        # 测试
+        # 验证
         model.eval()
         gens = []
         summaries = []
         for feature in tqdm(dev_data):
             title = feature['title']
-            content = {k : v for k, v in feature.items() if k != 'title'} 
+            content = {k : v.to(device) for k, v in feature.items() if k != 'title'} 
             if args.data_parallel and torch.cuda.is_available():
                 gen = model.module.generate(max_length=args.max_len_generate,
                              eos_token_id=tokenizer.sep_token_id,
@@ -240,7 +239,7 @@ def train_model(model, adam, train_data, dev_data, tokenizer, device, args):
             gens.extend(gen)
             summaries.extend(title)
         scores = compute_rouges(gens, summaries)
-        print(scores)
+        print("Validation Loss: {}".format(scores))
         rouge_l = scores['rouge-l']
         if rouge_l > best:
             best = rouge_l
@@ -258,12 +257,12 @@ def init_argument():
     parser.add_argument('--pretrain_model', default='./t5_pegasus_pretrain')
     parser.add_argument('--model_dir', default='./saved_model')
     
-    parser.add_argument('--num_epoch', default=15, help='number of epoch')
+    parser.add_argument('--num_epoch', default=20, help='number of epoch')
     parser.add_argument('--batch_size', default=16, help='batch size')
     parser.add_argument('--lr', default=2e-4, help='learning rate')
     parser.add_argument('--data_parallel', default=False)
     parser.add_argument('--max_len', default=512, help='max length of inputs')
-    parser.add_argument('--max_len_generate', default=40, help='max length of generated text')
+    parser.add_argument('--max_len_generate', default=40, help='max length of outputs')
 
     args = parser.parse_args()
     return args
