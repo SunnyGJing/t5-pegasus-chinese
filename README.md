@@ -21,12 +21,16 @@
     - pandas 
 2. 下载t5-pegasus模型放在 t5_pegasus_pretain目录下，目录下三个文件：
    - pytorch_model.bin
-   - bert_config.json
+   - config.json
    - vocab.txt  
 
     预训练模型下载地址（追一科技开源的t5-pegasus的pytorch版本，分享自renmada）：
-    - Base版本：https://pan.baidu.com/s/1TGthgU22iZp_y1MZZMs1YA 提取码: j15c
-    - Small版本：https://pan.baidu.com/s/1Nw5wLb6KmcCOHSLtKssq8w 提取码：9rd8
+    - Base版本：
+      - 百度网盘：https://pan.baidu.com/s/1JIjEEyX-dgmqpQdL7aNbAw 提取码：fd7k
+      - Google Drive：https://drive.google.com/file/d/18Y5LVghAGbz7ys0noii1eM1yDtFmW490/view?usp=sharing
+    - Small版本：
+      - 百度网盘：https://pan.baidu.com/s/1Kc6xFqJZoVxKLBGx924zgQ 提取码：hvq9
+      - Google Drive：https://drive.google.com/file/d/1fCL7f_f8I6YuezoYQ3EvT9h-S1WngKZo/view?usp=sharing
 
     解压后，按上面说的放在对应目录下，文件名称确认无误即可。
 3. 命令行执行
