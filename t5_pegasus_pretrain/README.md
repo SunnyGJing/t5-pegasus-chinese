@@ -4,6 +4,9 @@ config.json
 vocab.txt  
 
 ### 下载地址：
-Base版本：https://pan.baidu.com/s/1lQ9Dt9wZDO3IgiCL9tP-Ug 提取码: 3sfn  
-
-Small版本：链接: https://pan.baidu.com/s/1bXRVWnDyAck9VfSO9_1oJQ 提取码: qguk
+- Base版本：
+  - 百度网盘：https://pan.baidu.com/s/1JIjEEyX-dgmqpQdL7aNbAw 提取码：fd7k
+  - Google Drive：https://drive.google.com/file/d/18Y5LVghAGbz7ys0noii1eM1yDtFmW490/view?usp=sharing
+- Small版本：
+  - 百度网盘：https://pan.baidu.com/s/1Kc6xFqJZoVxKLBGx924zgQ 提取码：hvq9
+  - Google Drive：https://drive.google.com/file/d/1fCL7f_f8I6YuezoYQ3EvT9h-S1WngKZo/view?usp=sharing
