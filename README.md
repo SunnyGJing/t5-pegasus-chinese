@@ -13,7 +13,7 @@
 **本 Git 如何运行：**  
 1. 所需Python库  
     - transformers==4.15.0  
-    - tokeniziers==0.10.3  
+    - tokenizers==0.10.3  
     - torch==1.7.0或1.8.0或1.8.1均可
     - jieba
     - rouge
